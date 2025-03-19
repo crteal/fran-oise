@@ -12,4 +12,7 @@ def send_mail(url: str, **kwargs):
     if not data:
         raise Exception('data is unspecified')
 
-    return requests.post(url, auth=("api", api_key), data=data)
+    response = requests.post(url, auth=("api", api_key), data=data)
+    # throw an error if we got a failure from the Mailgun API
+    response.raise_for_status()
+    return response
