@@ -4,7 +4,7 @@ from typing import Annotated, Optional
 
 from fastapi import BackgroundTasks, FastAPI, Form, Response, status
 
-from .chat import chat, get_prompt_message, message_tuple_to_dict
+from .chat import chat, get_prompt_message_from_conversation, message_tuple_to_dict
 from .db import open_db
 from .mail import send_mail
 
@@ -16,30 +16,39 @@ def App(**kwargs):
 
     app = FastAPI()
 
-
     DATABASE_URL = get_config(kwargs, 'DATABASE_URL', 'data.db')
-    LLM_MODEL = get_config(kwargs, 'LLM_MODEL', 'llama3.2')
-    LLM_PROMPT_PATH = get_config(kwargs, 'LLM_PROMPT_PATH', 'prompt.txt')
     LLM_API_CHAT_URL = get_config(kwargs, 'LLM_API_CHAT_URL', 'http://localhost:11434/api/chat')
-    EMAIL_SENDER_WHITELIST = get_config(kwargs, 'EMAIL_SENDER_WHITELIST')
     MAILGUN_API_KEY = get_config(kwargs, 'MAILGUN_API_KEY')
     MAILGUN_API_SENDER = get_config(kwargs, 'MAILGUN_API_SENDER')
     MAILGUN_API_URL = get_config(kwargs, 'MAILGUN_API_URL')
 
-    def chat_and_reply(headers: Optional[str], message: str, sender: Optional[str], subject: Optional[str]) -> None:
-        # NOTE we load the prompt on each request so that it can be tweaked outside
-        # the band of application deployment
-        prompt = get_prompt_message(LLM_PROMPT_PATH)
+    def chat_and_reply(headers: Optional[str], message: str, recipient: str, sender: Optional[str], subject: Optional[str]) -> None:
+        match = re.search("\(Conversation=(\d+)\)", recipient)
+        if not match:
+            raise Exception('unspecified conversation id in recipient email address')
+        conversation_id = int(match.group(1))
 
         with open_db(DATABASE_URL) as db:
-            db.add_user_message(message)
-            messages = db.get_messages()
+            result = db.get_conversation(conversation_id)
+
+            if not result:
+                raise Exception('conversation with `id` %d does not exist' % conversation_id)
+
+            conversation = db.conversation_to_dict(result)
+
+            user_email = conversation.get('user_email')
+            if sender not in user_email:
+                raise Exception('invalid user email `%s` for conversation %d' % (user_email, conversation_id))
+
+            prompt = get_prompt_message_from_conversation(conversation)
+            db.add_user_message(conversation_id, message)
+            messages = db.get_messages_by_conversation(conversation_id)
             message_objects = list(map(message_tuple_to_dict, [prompt] + messages))
-            response = chat(message_objects, model=LLM_MODEL, url=LLM_API_CHAT_URL)
-            db.add_assistant_message(response)
+            response = chat(message_objects, model=conversation.get('model'), url=LLM_API_CHAT_URL)
+            db.add_assistant_message(conversation_id, response)
 
         data = {
-            "from": MAILGUN_API_SENDER,
+            "from": "%s (Conversation=%d) <%s>" % (conversation.get('agent_name'), conversation_id, MAILGUN_API_SENDER),
             "to": sender,
             "text": response
         }
@@ -56,13 +65,7 @@ def App(**kwargs):
         send_mail(MAILGUN_API_URL, api_key=MAILGUN_API_KEY, data=data)
 
     @app.post('/mailgun', status_code=200)
-    async def mailgun(headers: Annotated[str, Form(alias='message-headers')], message: Annotated[str, Form(alias='body-plain')], sender: Annotated[str, Form()], subject: Annotated[str, Form()], background_tasks: BackgroundTasks, response: Response) -> None:
-        # NOTE as a security measure, if there is a whitelist for sender email
-        # addresses, and the sender of the mail is not in that list, we will error
-        # out (to help limit the possibility of receiving bad/malacious input)
-        if EMAIL_SENDER_WHITELIST and sender not in EMAIL_SENDER_WHITELIST:
-            response.status_code = status.HTTP_406_NOT_ACCEPTABLE
-            return
-        background_tasks.add_task(chat_and_reply, headers, message, sender, subject)
+    async def mailgun(headers: Annotated[str, Form(alias='message-headers')], message: Annotated[str, Form(alias='body-plain')], recipient: Annotated[str, Form()], sender: Annotated[str, Form()], subject: Annotated[str, Form()], background_tasks: BackgroundTasks, response: Response) -> None:
+        background_tasks.add_task(chat_and_reply, headers, message, recipient, sender, subject)
 
     return app
