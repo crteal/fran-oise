@@ -1,15 +1,23 @@
 from collections.abc import Sequence
 import requests
 
+
 def message_tuple_to_dict(values: tuple[str, str]):
     return dict(zip(('role', 'content'), values))
 
-def get_prompt(filepath: str):
-    with open(filepath, 'r', encoding='utf8') as file:
-        return file.read()
 
-def get_prompt_message(filepath: str):
-    return ('system', get_prompt(filepath))
+def get_prompt_message(s: str) -> tuple[str, str]:
+    return ('system', s)
+
+
+def create_prompt_from_conversation(conversation: dict[str, str]) -> str:
+    return conversation.get('agent_prompt').format(**conversation)
+
+
+def get_prompt_message_from_conversation(conversation: dict[str, str]) -> tuple[str, str]:
+    content = create_prompt_from_conversation(conversation)
+    return get_prompt_message(content)
+
 
 def chat(messages: Sequence[dict[str, str]], **kwargs):
     if not messages:
