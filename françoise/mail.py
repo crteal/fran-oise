@@ -1,4 +1,25 @@
+import re
+from typing import Optional
+
 import requests
+
+
+def parse_to_header(headers: str) -> Optional[str]:
+    match = re.search('\\["To",([^\\]]*)\\]', headers)
+    if not match:
+        return None
+    return match.group(1)
+
+
+def parse_conversation_id_from_headers(headers: str) -> Optional[int]:
+    to = parse_to_header(headers)
+    if not to:
+        return None
+    match = re.search('\\.(\\d+)[^\\s]*\\s<', to)
+    if not match:
+        return None
+    return int(match.group(1))
+
 
 def send_mail(url: str, **kwargs):
     if not url:

@@ -6,7 +6,7 @@ from fastapi import BackgroundTasks, FastAPI, Form, Response
 
 from .chat import chat, get_prompt_message_from_conversation, message_tuple_to_dict
 from .db import open_db
-from .mail import send_mail
+from .mail import parse_conversation_id_from_headers, send_mail
 
 
 def get_config(
@@ -32,14 +32,9 @@ def App(**kwargs):
             message: str,
             sender: Optional[str],
             subject: Optional[str]) -> None:
-        match = re.search('"To","([^\"]*)"', headers)
-        if not match:
-            raise Exception('could not locate `To` header in email')
-        to = match.group(0)
-        match = re.search('\\.(\\d+)\\s<', to)
-        if not match:
-            raise Exception('unspecified conversation `id` in `%s`' % (to,))
-        conversation_id = int(match.group(1))
+        conversation_id = parse_conversation_id_from_headers(headers)
+        if not conversation_id:
+            raise Exception('unspecified conversation `id` in %s' % (headers,))
 
         with open_db(DATABASE_URL) as db:
             result = db.get_conversation(conversation_id)
