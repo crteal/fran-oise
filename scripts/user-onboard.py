@@ -22,7 +22,7 @@ parser.add_argument("-n", "--name", type=str, required=True)
 parser.add_argument("-email", "--email", type=str, required=True)
 parser.add_argument("-pw", "--password", type=str, required=True)
 parser.add_argument("-a", "--agent", type=int, required=True)
-parser.add_argument("-model", "--model", type=str, default='gemma')
+parser.add_argument("-model", "--model", type=str, default='gemma3')
 parser.add_argument("-prof", "--proficiency", type=str, required=True)
 parser.add_argument("-db", "--database", type=str, default=os.environ.get('DATABASE_URL', 'data.db'))
 
