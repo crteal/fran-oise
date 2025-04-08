@@ -21,6 +21,7 @@ parser.add_argument("-n", "--name", type=str, required=True)
 parser.add_argument("-lang", "--language", type=str, required=True)
 parser.add_argument("-prof", "--proficiency", type=str, required=True)
 parser.add_argument("-p", "--prompt", type=str, default='./prompt.md')
+parser.add_argument("-tz", "--timezone", type=str, required=True)
 parser.add_argument("-db", "--database", type=str, default=os.environ.get('DATABASE_URL', 'data.db'))
 
 args = parser.parse_args()
@@ -31,6 +32,7 @@ with open(args.prompt, 'r', encoding='utf8') as file:
         agent = db.create_agent(name=args.name,
                                 language=args.language,
                                 proficiency=args.proficiency,
-                                prompt=prompt)
+                                prompt=prompt,
+                                timezone=args.timezone)
         id, *remaining = agent
         print('created agent with id `%d`' % (id,))

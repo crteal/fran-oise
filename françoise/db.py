@@ -21,7 +21,8 @@ tables = [
              ('name', 'TEXT NOT NULL'),
              ('language', 'TEXT NOT NULL'),
              ('proficiency', 'TEXT NOT NULL'),
-             ('prompt', 'TEXT NOT NULL')
+             ('prompt', 'TEXT NOT NULL'),
+             ('timezone', 'TEXT NOT NULL')
          ]
     ),
 
@@ -116,13 +117,15 @@ class Database:
             name: str,
             language: str,
             proficiency: str,
-            prompt: str) -> tuple:
+            prompt: str,
+            timezone: str) -> tuple:
         return self.table_insert(
                 'agents',
                 name=name,
                 language=language,
                 proficiency=proficiency,
-                prompt=prompt)
+                prompt=prompt,
+                timezone=timezone)
 
     def create_user(
             self,
@@ -178,7 +181,8 @@ class Database:
                 agent.name AS agent_name,
                 agent.language AS agent_language,
                 agent.proficiency AS agent_proficiency,
-                agent.prompt AS agent_prompt
+                agent.prompt AS agent_prompt,
+                agent.timezone AS agent_timezone
             FROM conversations conversation
             JOIN users user
             ON conversation.user_id = user.id
@@ -199,7 +203,8 @@ class Database:
                          'agent_name',
                          'agent_language',
                          'agent_proficiency',
-                         'agent_prompt'),
+                         'agent_prompt',
+                         'agent_timezone'),
                     conversation))
 
     def get_messages_by_conversation(self, conversation_id: int):
