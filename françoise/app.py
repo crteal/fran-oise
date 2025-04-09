@@ -2,7 +2,7 @@ import os
 import re
 from typing import Annotated, Optional
 
-from fastapi import BackgroundTasks, FastAPI, Form, Response
+from fastapi import BackgroundTasks, FastAPI, Form, Response, status
 
 from .chat import chat, get_prompt_message_from_conversation, message_tuple_to_dict
 from .db import open_db
@@ -26,6 +26,7 @@ def App(**kwargs):
     MAILGUN_API_KEY = get_config(kwargs, 'MAILGUN_API_KEY')
     MAILGUN_API_SENDER = get_config(kwargs, 'MAILGUN_API_SENDER')
     MAILGUN_API_URL = get_config(kwargs, 'MAILGUN_API_URL')
+    SERVER_API_KEY = get_config(kwargs, 'SERVER_API_KEY')
 
     def chat_and_reply(
             headers: str,
@@ -71,6 +72,11 @@ def App(**kwargs):
             data['subject'] = subject
 
         send_mail(MAILGUN_API_URL, api_key=MAILGUN_API_KEY, data=data)
+
+    @app.get('/heartbeat', status_code=200)
+    def heartbeat(api_key: str, response: Response) -> None:
+        if api_key != SERVER_API_KEY:
+            response.status_code = status.HTTP_401_UNAUTHORIZED
 
     @app.post('/mailgun', status_code=200)
     async def mailgun(
