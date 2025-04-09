@@ -78,8 +78,7 @@ def App(**kwargs):
             message: Annotated[str, Form(alias='body-plain')],
             sender: Annotated[str, Form()],
             subject: Annotated[str, Form()],
-            background_tasks: BackgroundTasks,
-            response: Response) -> None:
+            background_tasks: BackgroundTasks) -> None:
         background_tasks.add_task(
                 chat_and_reply,
                 headers,
